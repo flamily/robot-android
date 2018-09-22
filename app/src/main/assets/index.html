@@ -1,0 +1,36 @@
+<html>
+    <body>
+        <script type="text/javascript">
+            irs_raw.photoSuccess = function(photo) {
+                document.getElementById('photo_success').innerHTML = photo
+            }
+            irs_raw.photoError = function(error) {
+                document.getElementById('photo_error').innerHTML = photo
+            }
+            irs_raw.phraseSuccess = function(index) {
+                document.getElementById('phrase_success').innerHTML = index
+            }
+            irs_raw.phraseError = function(error) {
+                document.getElementById('phrase_error').innerHTML = error
+            }
+
+            function printIdentity() {
+                document.getElementById('identity_result').innerHTML = irs_raw.identify();
+            }
+        </script>
+        <input type="button" value="Take Photo" onClick="irs_raw.takePhoto()" />
+        <input type="button" value="Listen for 'Yes', 'No'" onClick="irs_raw.listen('yes,no')" />
+        <input type="button" value="Say 'Hello World'" onClick="irs_raw.say('hello world')" />
+        <input type="button" value="Identify" onClick="printIdentity()" />
+        <p>Photo Success:</p>
+        <p id="photo_success"></p>
+        <p>Photo Error:</p>
+        <p id="photo_error"></p>
+        <p>Phrase Success:</p>
+        <p id="phrase_success"></p>
+        <p>Phrase Error:</p>
+        <p id="phrase_error"></p>
+        <p>Identity:</p>
+        <p id="identity_result"></p>
+    </body>
+</html>
