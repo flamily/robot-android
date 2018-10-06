@@ -18,33 +18,40 @@ public class CaptureImageReceiver extends BroadcastReceiver {
     private String TAG = "ImageCaptureReceiver";
     private String INTENT_ACTION = "ImageCaptureAction";
     private Camera mCamera;
+
     private Camera.PictureCallback mPicture = new Camera.PictureCallback() {
 
         @Override
         public void onPictureTaken(byte[] data, Camera camera) {
 
             Log.d(TAG, "Picture length : " + data.length);
-            iCaptureImageReceiver.sendImage(data);
+            iCaptureImageReceiver.sendImage(data, true);
+            camera.release();
         }
     };
 
     @Override
     public void onReceive(Context context, Intent intent) {
         if (INTENT_ACTION.equals(intent.getAction())) {
-            takePhoto();
+            try {
+                takePhoto();
+            } catch (RuntimeException e) {
+                iCaptureImageReceiver.sendImage(null, false);
+            }
         }
     }
 
     public void registerCallback(ICaptureImageReceiver iCaptureImageReceiver) {
         Log.e(TAG, "callback registered");
         CaptureImageReceiver.iCaptureImageReceiver = iCaptureImageReceiver;
+
     }
 
 
     public void takePhoto() {
         if (Camera.getNumberOfCameras() >= 2) {
 
-            mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_BACK);
+            mCamera = Camera.open(Camera.CameraInfo.CAMERA_FACING_FRONT);
         }
 
         if (Camera.getNumberOfCameras() < 2) {
@@ -67,7 +74,7 @@ public class CaptureImageReceiver extends BroadcastReceiver {
     }
 
     public interface ICaptureImageReceiver {
-        void sendImage(byte[] data);
+        void sendImage(byte[] data, boolean success);
     }
 
 }

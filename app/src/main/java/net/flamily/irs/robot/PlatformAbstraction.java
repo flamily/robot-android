@@ -6,6 +6,7 @@ import android.content.IntentFilter;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
+import android.widget.Toast;
 
 import net.flamily.irs.robot.image_capture.CaptureImageReceiver;
 
@@ -43,12 +44,16 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
             return;
         }
 
-        startImageCaptureBroadCastReceiver();
-        sendIntent(INTENT_CAPTURE_IMAGE);
+        if (mCaptureImageReceiver != null)
+            sendIntent(INTENT_CAPTURE_IMAGE);
     }
 
-
-    private void startImageCaptureBroadCastReceiver() {
+    /**
+     * Register ImageCapture broadcast receiver
+     *
+     * @param context current context you are workign on
+     */
+    public void registerImageBroadCastReceiver(Context context) {
         mCaptureImageReceiver = new CaptureImageReceiver();
         //Assign this
         //Declare the cb interface static in your activity
@@ -56,7 +61,7 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
         mCaptureImageReceiver.registerCallback(iCaptureImageReceiver);
 
         IntentFilter filter = new IntentFilter(INTENT_CAPTURE_IMAGE);
-        ref.get().getContext().registerReceiver(mCaptureImageReceiver, filter);
+        context.registerReceiver(mCaptureImageReceiver, filter);
     }
 
     private void sendIntent(String intent_action) {
@@ -66,30 +71,42 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
         ref.get().getContext().sendBroadcast(intent);
     }
 
-    //TODO: FIX the unregister
-    private void unregisterBroadCastReciver(Context context) {
-        context.unregisterReceiver(mCaptureImageReceiver);
+    /**
+     * Unregisters broadcast receivers
+     *
+     * @param context current context you are working on
+     */
+    public void unregisterBroadCastReceiver(Context context) {
+        Log.e(TAG, "unregisterBroadCastReceiver");
+        try {
+            context.unregisterReceiver(mCaptureImageReceiver);
+        } catch (IllegalArgumentException e) {
+            Log.e(TAG, "Receiver not registered");
+        }
+
     }
 
-
     @Override
-    public void sendImage(final byte[] data) {
+    public void sendImage(final byte[] data, final boolean success) {
         final WebView webView = ref.get();
         if (webView == null) {
             return;
         }
 
-        webView.post(new Runnable() {
-            @Override
-            public void run() {
-                // do something with those bytes now
-                if (data.length > 0) {
-                    webView.loadUrl("javascript:irs_raw.photoSuccess('received bytes')");
+        if (success) {
+            webView.post(new Runnable() {
+                @Override
+                public void run() {
+                    // do something with those bytes now
+                    if (data.length > 0) {
+                        webView.loadUrl("javascript:irs_raw.photoSuccess('received bytes')");
+                    }
                 }
-            }
-        });
+            });
+        } else {
+            Toast.makeText(webView.getContext(), "Unable to take image", Toast.LENGTH_LONG).show();
+        }
 
-        unregisterBroadCastReciver(webView.getContext());
     }
 
     @JavascriptInterface
