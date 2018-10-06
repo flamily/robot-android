@@ -1,20 +1,27 @@
 package net.flamily.irs.robot;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.os.Build;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.view.KeyEvent;
 import android.view.ViewGroup;
 import android.webkit.WebView;
-
-import net.flamily.irs.robot.BuildConfig;
+import android.widget.Toast;
 
 import java.lang.ref.WeakReference;
 
 public class WebInterface extends Activity {
     private WebView webView;
+
+    private static final int MY_PERMISSIONS_REQUEST_CAMERA = 101;
 
     //Lifecycle
 
@@ -23,6 +30,7 @@ public class WebInterface extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.web_interface);
         buildWebView();
+        checkPermissions();
     }
 
     @Override
@@ -107,5 +115,40 @@ public class WebInterface extends Activity {
             return true;
         }
         return super.onKeyDown(keyCode, event);
+    }
+
+
+    private void checkPermissions() {
+        int MyVersion = Build.VERSION.SDK_INT;
+        if (MyVersion > Build.VERSION_CODES.KITKAT) {
+            if (!checkIfAlreadyhavePermission()) {
+                requestForSpecificPermission();
+            }
+        }
+    }
+
+    private boolean checkIfAlreadyhavePermission() {
+        int result = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA);
+        return result == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void requestForSpecificPermission() {
+        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA},
+                MY_PERMISSIONS_REQUEST_CAMERA);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        switch (requestCode) {
+            case MY_PERMISSIONS_REQUEST_CAMERA:
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(this, "Granted", Toast.LENGTH_LONG).show();
+                } else {
+                    Toast.makeText(this, "Granted", Toast.LENGTH_LONG).show();
+                }
+                break;
+            default:
+                super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
     }
 }

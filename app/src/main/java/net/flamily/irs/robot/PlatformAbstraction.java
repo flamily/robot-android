@@ -1,16 +1,26 @@
 package net.flamily.irs.robot;
 
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
-import org.json.JSONArray;
-import org.json.JSONException;
+import net.flamily.irs.robot.image_capture.CaptureImageReceiver;
 
 import java.lang.ref.WeakReference;
 
-public class PlatformAbstraction {
+
+public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageReceiver {
 
     private final WeakReference<WebView> ref;
+    private String TAG = "PlatformAbstraction";
+
+    private String INTENT_CAPTURE_IMAGE = "ImageCaptureAction";
+
+    private CaptureImageReceiver mCaptureImageReceiver;
+
 
     public PlatformAbstraction(WeakReference<WebView> webViewReference) {
         this.ref = webViewReference;
@@ -33,21 +43,57 @@ public class PlatformAbstraction {
             return;
         }
 
-        //get the photo
-        final String photo = "bingo";
+        startImageCaptureBroadCastReceiver();
+        sendIntent(INTENT_CAPTURE_IMAGE);
+    }
+
+
+    private void startImageCaptureBroadCastReceiver() {
+        mCaptureImageReceiver = new CaptureImageReceiver();
+        //Assign this
+        //Declare the cb interface static in your activity
+        CaptureImageReceiver.ICaptureImageReceiver iCaptureImageReceiver = this;
+        mCaptureImageReceiver.registerCallback(iCaptureImageReceiver);
+
+        IntentFilter filter = new IntentFilter(INTENT_CAPTURE_IMAGE);
+        ref.get().getContext().registerReceiver(mCaptureImageReceiver, filter);
+    }
+
+    private void sendIntent(String intent_action) {
+        Log.e(TAG, "Sending Intent");
+        Intent intent = new Intent(intent_action);
+        intent.setAction(intent_action);
+        ref.get().getContext().sendBroadcast(intent);
+    }
+
+    //TODO: FIX the unregister
+    private void unregisterBroadCastReciver(Context context) {
+        context.unregisterReceiver(mCaptureImageReceiver);
+    }
+
+
+    @Override
+    public void sendImage(final byte[] data) {
+        final WebView webView = ref.get();
+        if (webView == null) {
+            return;
+        }
 
         webView.post(new Runnable() {
             @Override
             public void run() {
-                webView.loadUrl("javascript:irs_raw.photoSuccess('" + photo + "')");
+                // do something with those bytes now
+                if (data.length > 0) {
+                    webView.loadUrl("javascript:irs_raw.photoSuccess('received bytes')");
+                }
             }
         });
 
-
+        unregisterBroadCastReciver(webView.getContext());
     }
 
     @JavascriptInterface
-    public void listen(String phrases) throws JSONException {
+    public void listen(String phrases) {
         /*
         Success:
         -call 'irs_raw.phraseSuccess(%index%)'
@@ -85,4 +131,5 @@ public class PlatformAbstraction {
     public String identify() {
         return "robot";
     }
+
 }
