@@ -3,10 +3,12 @@ package net.flamily.irs.robot;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
+import android.speech.RecognizerIntent;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
@@ -18,6 +20,7 @@ import android.webkit.WebView;
 import android.widget.Toast;
 
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 
 public class WebInterface extends Activity {
     private WebView webView;
@@ -187,5 +190,26 @@ public class WebInterface extends Activity {
         }
     }
 
+    ////TODO: regex + match words
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, final Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        switch (requestCode) {
+            case 10:
+                if (resultCode == RESULT_OK && data != null) {
+                    final ArrayList<String> result = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+
+                    webView.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            // do something with those bytes now
+                            webView.loadUrl("javascript:irs_raw.phraseSuccess('" + result.get(0) + "')");
+                        }
+                    });
+                }
+                break;
+        }
+    }
 
 }

@@ -1,16 +1,18 @@
 package net.flamily.irs.robot;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.speech.RecognizerIntent;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
-import android.widget.Toast;
 
 import net.flamily.irs.robot.image_capture.CaptureImageReceiver;
 
 import java.lang.ref.WeakReference;
+import java.util.Locale;
 
 
 public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageReceiver {
@@ -51,7 +53,7 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
     /**
      * Register ImageCapture broadcast receiver
      *
-     * @param context current context you are workign on
+     * @param context current working context
      */
     public void registerImageBroadCastReceiver(Context context) {
         mCaptureImageReceiver = new CaptureImageReceiver();
@@ -99,18 +101,23 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
                 public void run() {
                     // do something with those bytes now
                     if (data.length > 0) {
-                        webView.loadUrl("javascript:irs_raw.photoSuccess('received bytes')");
+                        webView.loadUrl("javascript:irs_raw.photoSuccess(' | received " + data.length + "')");
                     }
                 }
             });
         } else {
-            Toast.makeText(webView.getContext(), "Unable to take image", Toast.LENGTH_LONG).show();
+            webView.loadUrl("javascript:irs_raw.photoError('Unable to take image')");
         }
 
     }
 
     @JavascriptInterface
     public void listen(String phrases) {
+        Log.e(TAG, "listen fun");
+        final WebView webView = ref.get();
+        if (webView == null) {
+            return;
+        }
         /*
         Success:
         -call 'irs_raw.phraseSuccess(%index%)'
@@ -124,18 +131,34 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
         timeout reached: 'timeout'
          */
 
+        //TODO: timeout ?
+
+        Context context = ref.get().getContext();
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
+
+        if (intent.resolveActivity(context.getPackageManager()) != null) {
+            ((Activity) context).startActivityForResult(intent, 10);
+        } else {
+            webView.loadUrl("javascript:irs_raw.phraseError('Your Device Don't Support Speech Input')");
+        }
 
         // read all the phrases
-
         //regex
 
         //start listening for words
 
         //match words
+
+
     }
+
 
     @JavascriptInterface
     public void say(String phrase) {
+        Log.e(TAG, "say");
+        //TODO: robot says something
         /*
         --Errors:
         ---Parameter Errors:
