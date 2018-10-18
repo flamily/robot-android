@@ -1,23 +1,15 @@
 package net.flamily.irs.robot;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.res.Configuration;
-import android.os.Build;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.ViewGroup;
 import android.webkit.WebView;
-import android.widget.Toast;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -25,7 +17,7 @@ import java.util.ArrayList;
 public class WebInterface extends Activity {
     private WebView webView;
 
-    private static final int MY_PERMISSIONS_REQUEST_CAMERA = 101;
+    //private static final int MY_PERMISSIONS_REQUEST_CAMERA = 101;
     private String TAG = "WebInterface";
 
     private PlatformAbstraction mPlatformAbstraction;
@@ -33,11 +25,11 @@ public class WebInterface extends Activity {
     //Lifecycle
 
     @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.web_interface);
         buildWebView();
-        checkPermissions();
+        //checkPermissions();
     }
 
     @Override
@@ -45,30 +37,38 @@ public class WebInterface extends Activity {
         super.onStart();
         Log.e(TAG, "onStart");
         if (mPlatformAbstraction != null)
+        {
             mPlatformAbstraction.registerImageBroadCastReceiver(this);
+            mPlatformAbstraction.registerSpeech(this);
+        }
+
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         Log.e(TAG, "onPause");
-        if (mPlatformAbstraction != null)
+        if (mPlatformAbstraction != null) {
             mPlatformAbstraction.unregisterBroadCastReceiver(this);
+            mPlatformAbstraction.disableSpeech();
+        }
     }
 
     @Override
     protected void onStop() {
         super.onStop();
         Log.e(TAG, "onStop");
-        if (mPlatformAbstraction != null)
+        if (mPlatformAbstraction != null) {
             mPlatformAbstraction.unregisterBroadCastReceiver(this);
+            mPlatformAbstraction.disableSpeech();
+        }
     }
 
     @Override
     protected void onDestroy() {
         //Gotta kill the web view dead otherwise the garbage collector doesn't come
         if (webView != null) {
-            ViewGroup vg = findViewById(R.id.web_view_container);
+            ViewGroup vg = (ViewGroup) findViewById(R.id.web_view_container);
             if (vg != null) {
                 vg.removeView(webView);
             }
@@ -77,8 +77,10 @@ public class WebInterface extends Activity {
         }
 
         //TODO: unregister receiver
-        if (mPlatformAbstraction != null)
+        if (mPlatformAbstraction != null) {
             mPlatformAbstraction.unregisterBroadCastReceiver(this);
+            mPlatformAbstraction.disableSpeech();
+        }
 
         super.onDestroy();
     }
@@ -90,7 +92,7 @@ public class WebInterface extends Activity {
         if (webView != null) {
             if (mPlatformAbstraction != null)
                 mPlatformAbstraction.unregisterBroadCastReceiver(this);
-            ViewGroup vg = findViewById(R.id.web_view_container);
+            ViewGroup vg = (ViewGroup) findViewById(R.id.web_view_container);
             vg.removeView(webView);
         }
         super.onConfigurationChanged(newConfig); // Do the rotate
@@ -123,7 +125,7 @@ public class WebInterface extends Activity {
             // Thinking 'dafuq?' Check this out: https://developer.android.com/guide/webapps/webview
 
             webView = new WebView(this);
-            WeakReference<WebView> ref = new WeakReference<>(webView);
+            WeakReference<WebView> ref = new WeakReference<WebView>(webView);
             webView.getSettings().setJavaScriptEnabled(true);
             webView.getSettings().setSupportMultipleWindows(true);
             mPlatformAbstraction = new PlatformAbstraction(ref);
@@ -133,7 +135,7 @@ public class WebInterface extends Activity {
         if (webView.getParent() == null) {
             //Add the web view to the view hierarchy. Sneaky this way so we can rotate later
 
-            ViewGroup vg = findViewById(R.id.web_view_container);
+            ViewGroup vg = (ViewGroup) findViewById(R.id.web_view_container);
             vg.addView(webView, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT));
         }
@@ -155,27 +157,28 @@ public class WebInterface extends Activity {
     }
 
 
-    private void checkPermissions() {
+    /*private void checkPermissions() {
         int MyVersion = Build.VERSION.SDK_INT;
         if (MyVersion > Build.VERSION_CODES.KITKAT) {
             if (!checkIfAlreadyhavePermission()) {
                 requestForSpecificPermission();
             }
         }
-    }
+    }*/
 
+    /*
     private boolean checkIfAlreadyhavePermission() {
-        int result = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA);
+        int result = getBaseContext().checkSelfPermission(this, Manifest.permission.CAMERA);
         return result == PackageManager.PERMISSION_GRANTED;
     }
 
     private void requestForSpecificPermission() {
-        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA},
+        this.requestPermissions(this, new String[]{Manifest.permission.CAMERA},
                 MY_PERMISSIONS_REQUEST_CAMERA);
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         switch (requestCode) {
             case MY_PERMISSIONS_REQUEST_CAMERA:
                 if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -188,9 +191,9 @@ public class WebInterface extends Activity {
             default:
                 super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         }
-    }
+    }*/
 
-    ////TODO: regex + match words
+    ////TODO: Android standard speech ( doesn't work on robot )
     @Override
     protected void onActivityResult(int requestCode, int resultCode, final Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
