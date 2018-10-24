@@ -3,19 +3,23 @@ package net.flamily.irs.robot;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.media.MediaRecorder;
+import android.os.Environment;
 import android.robot.speech.SpeechManager;
-
+import android.robot.speech.SpeechService;
 import android.util.Base64;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
 import net.flamily.irs.robot.image_capture.CaptureImageReceiver;
+import net.flamily.irs.robot.robot_listenining.WavRecorder;
 
+import java.io.IOException;
 import java.lang.ref.WeakReference;
 
 
-public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageReceiver,SpeechManager.OnConnectListener, SpeechManager.AsrListener {
+public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageReceiver, SpeechManager.OnConnectListener {
 
     private final WeakReference<WebView> ref;
     private String TAG = "PlatformAbstraction";
@@ -24,6 +28,12 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
 
     private CaptureImageReceiver mCaptureImageReceiver;
     private SpeechManager mSpeechManager;
+
+    private static String mFileName = null;
+    private MediaRecorder mMediaRecorder;
+    private boolean recording = true;
+    private WavRecorder wavRecorder;
+    private SpeechService mSpeechService;
 
     public PlatformAbstraction(WeakReference<WebView> webViewReference) {
         this.ref = webViewReference;
@@ -127,20 +137,27 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
             return;
         }
         Context context = ref.get().getContext();
-        if (mSpeechManager == null)
-        {
-            Log.e(TAG, "Registering");
-            registerSpeech(context);
-        }else {
-            mSpeechManager.setChatEnable(true);
-            mSpeechManager.setAsrEnable(true);
-            mSpeechManager.startListening();
 
-            Log.e(TAG, "established: "+mSpeechManager.isEstablished());
-            Log.e(TAG, "AsrEnabled: "+mSpeechManager.getAsrEnable());
-            Log.e(TAG, "startListening: "+mSpeechManager.startListening());
-            Log.e(TAG, "isListening: "+mSpeechManager.isListening());
+        mFileName = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/audio_file.3gp";
+        //adb pull /mnt/internal_sd/Music/Recording.mp4 E:\
+        try {
+            //mFileName = Environment.getExternalStorageDirectory().getAbsolutePath() + "/Recording.3gp";
+
+            Log.d(TAG, "DIR: " + mFileName);
+            if (recording) {
+                startRecording();
+            } else {
+                stopRecording(context);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, e.getMessage());
         }
+
+
+        recording = !recording;
+
+
+        //Audio au = new Audio();
         //TODO: implement timeout
 
         //Standard Android Speech to Text
@@ -165,7 +182,7 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
     // For some reason it's not recognizing that service - needs to be tested
     public void registerSpeech(Context context){
         Log.e(TAG, "Register speech boi");
-        //mSpeechManager = (SpeechManager) context.getSystemService(SpeechService.SERVICE_NAME);
+
         if (mSpeechManager == null) {
             mSpeechManager = new SpeechManager(context, this);
         }
@@ -176,8 +193,6 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
     {
         if(mSpeechManager != null)
         {
-            mSpeechManager.setAsrEnable(false);
-            mSpeechManager.setAsrListener(null);
             mSpeechManager.shutdown();
         }
     }
@@ -236,45 +251,28 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
         }
     }
 
-    //ASR LISTENER CALLBACK
-    @Override
-    public void onBegin() {
-        Log.d(TAG, "RobotSpeech: onBegin");
+    private void startRecording() {
+        Log.e(TAG, "started recording");
+        mMediaRecorder = new MediaRecorder();
+        mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+        mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
+        mMediaRecorder.setOutputFile(mFileName);
+        mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
+
+        try {
+            mMediaRecorder.prepare();
+        } catch (IOException e) {
+            Log.e(TAG, "prepare() failed");
+        }
+        mMediaRecorder.start();
     }
 
-    @Override
-    public void onVolumeChanged(float v) {
-        Log.d(TAG, "RobotSpeech: onVolumeChanged");
+    private void stopRecording(Context context) {
+        Log.e(TAG, "stopped recording");
+        mMediaRecorder.stop();
+        mMediaRecorder.release();
+        mMediaRecorder = null;
     }
 
-    @Override
-    public boolean onResult(final String s) {
-        final WebView webView = ref.get();
-        webView.post(new Runnable() {
-            @Override
-            public void run() {
-                // do something with those bytes now
-                webView.loadUrl("javascript:irs_raw.phraseSuccess('"+s+"')");
-            }
-        });
-        return false;
-    }
-
-    @Override
-    public void onError(int i) {
-        final WebView webView = ref.get();
-        webView.post(new Runnable() {
-            @Override
-            public void run() {
-                // do something with those bytes now
-                webView.loadUrl("javascript:irs_raw.phraseError('Unable to understand')");
-            }
-        });
-    }
-
-    @Override
-    public void onEnd() {
-        Log.d(TAG, "RobotSpeech: onEnd");
-    }
 
 }
