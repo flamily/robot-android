@@ -60,8 +60,10 @@ dependencies {
     implementation "io.grpc:grpc-okhttp:$grpcVersion"
     implementation "io.grpc:grpc-protobuf-lite:$grpcVersion"
     implementation "io.grpc:grpc-stub:$grpcVersion"
-    //compile 'javax.annotation:javax.annotation-api:1.2'
+    implementation 'javax.annotation:javax.annotation-api:1.2'
     protobuf 'com.google.protobuf:protobuf-java:3.6.1'
+    implementation 'com.google.android.gms:play-services-base:11.8.0'
+    implementation 'org.conscrypt:conscrypt-android:1.0.1+'
 
     // OAuth2 for Google API
     implementation('com.google.auth:google-auth-library-oauth2-http:0.7.0') {

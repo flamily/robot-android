@@ -11,7 +11,10 @@ import android.view.KeyEvent;
 import android.view.ViewGroup;
 import android.webkit.WebView;
 
+import org.conscrypt.Conscrypt;
+
 import java.lang.ref.WeakReference;
+import java.security.Security;
 import java.util.ArrayList;
 
 public class WebInterface extends Activity {
@@ -24,12 +27,16 @@ public class WebInterface extends Activity {
 
     //Lifecycle
 
+    static {
+        Security.insertProviderAt(Conscrypt.newProvider("GmsCore_OpenSSL"), 1);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.web_interface);
         buildWebView();
-        //checkPermissions();
+        //staSecurity.insertProviderAt(Conscrypt.newProvider("GmsCore_OpenSSL"), 1);
     }
 
     @Override
@@ -61,6 +68,7 @@ public class WebInterface extends Activity {
         if (mPlatformAbstraction != null) {
             mPlatformAbstraction.unregisterBroadCastReceiver(this);
             mPlatformAbstraction.disableSpeech();
+            mPlatformAbstraction.stopVoiceRecorder(this);
         }
     }
 
@@ -80,6 +88,7 @@ public class WebInterface extends Activity {
         if (mPlatformAbstraction != null) {
             mPlatformAbstraction.unregisterBroadCastReceiver(this);
             mPlatformAbstraction.disableSpeech();
+            mPlatformAbstraction.stopVoiceRecorder(this);
         }
 
         super.onDestroy();
@@ -214,5 +223,6 @@ public class WebInterface extends Activity {
                 break;
         }
     }
+
 
 }

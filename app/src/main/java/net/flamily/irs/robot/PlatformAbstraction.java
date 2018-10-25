@@ -1,22 +1,24 @@
 package net.flamily.irs.robot;
 
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.media.MediaRecorder;
-import android.os.Environment;
+import android.content.ServiceConnection;
+import android.os.IBinder;
 import android.robot.speech.SpeechManager;
-import android.robot.speech.SpeechService;
 import android.util.Base64;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
 import net.flamily.irs.robot.image_capture.CaptureImageReceiver;
-import net.flamily.irs.robot.robot_listenining.WavRecorder;
+import net.flamily.irs.robot.robot_listenining.SpeechService;
+import net.flamily.irs.robot.robot_listenining.VoiceRecorder;
 
-import java.io.IOException;
 import java.lang.ref.WeakReference;
+
+import static android.content.Context.BIND_AUTO_CREATE;
 
 
 public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageReceiver, SpeechManager.OnConnectListener {
@@ -29,11 +31,23 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
     private CaptureImageReceiver mCaptureImageReceiver;
     private SpeechManager mSpeechManager;
 
-    private static String mFileName = null;
-    private MediaRecorder mMediaRecorder;
-    private boolean recording = true;
-    private WavRecorder wavRecorder;
+
     private SpeechService mSpeechService;
+
+    private final ServiceConnection mServiceConnection = new ServiceConnection() {
+
+        @Override
+        public void onServiceConnected(ComponentName componentName, IBinder binder) {
+            mSpeechService = SpeechService.from(binder);
+            mSpeechService.addListener(mSpeechServiceListener);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName componentName) {
+            mSpeechService = null;
+        }
+
+    };
 
     public PlatformAbstraction(WeakReference<WebView> webViewReference) {
         this.ref = webViewReference;
@@ -41,16 +55,6 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
 
     @JavascriptInterface
     public void takePhoto() {
-        /*
-        Success:
-        -call 'irs_raw.photoSuccess(%base64 jpeg%)'
-        Error:
-        -call 'irs_raw.photoError(%error%)'
-        --Errors:
-        ---User Errors:
-        camera permission: 'permission'
-        no camera hardware: 'hardware_missing'
-         */
         final WebView webView = ref.get();
         if (webView == null) {
             return;
@@ -129,73 +133,6 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
 
     }
 
-    @JavascriptInterface
-    public void listen(String phrases) {
-        Log.e(TAG, "listen fun");
-        final WebView webView = ref.get();
-        if (webView == null) {
-            return;
-        }
-        Context context = ref.get().getContext();
-
-        mFileName = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC).getAbsolutePath() + "/audio_file.3gp";
-        //adb pull /mnt/internal_sd/Music/Recording.mp4 E:\
-        try {
-            //mFileName = Environment.getExternalStorageDirectory().getAbsolutePath() + "/Recording.3gp";
-
-            Log.d(TAG, "DIR: " + mFileName);
-            if (recording) {
-                startRecording();
-            } else {
-                stopRecording(context);
-            }
-        } catch (Exception e) {
-            Log.e(TAG, e.getMessage());
-        }
-
-
-        recording = !recording;
-
-
-        //Audio au = new Audio();
-        //TODO: implement timeout
-
-        //Standard Android Speech to Text
-        /*Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
-
-        if (intent.resolveActivity(context.getPackageManager()) != null) {
-            ((Activity) context).startActivityForResult(intent, 10);
-        } else {
-            //Doesn't support standard input, use robot input
-            Log.e(TAG, "no support, plan B");
-            if (mSpeechManager == null)
-            {
-                registerSpeech(context);
-            }
-        }*/
-
-    }
-
-    //@SuppressLint("WrongConstant")
-    // For some reason it's not recognizing that service - needs to be tested
-    public void registerSpeech(Context context){
-        Log.e(TAG, "Register speech boi");
-
-        if (mSpeechManager == null) {
-            mSpeechManager = new SpeechManager(context, this);
-        }
-    }
-
-
-    public void disableSpeech()
-    {
-        if(mSpeechManager != null)
-        {
-            mSpeechManager.shutdown();
-        }
-    }
 
     @JavascriptInterface
     public void say(String phrase) {
@@ -233,6 +170,34 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
         mSpeechManager.startSpeaking(phrase,true, true);
     }
 
+    private VoiceRecorder mVoiceRecorder;
+    private final VoiceRecorder.Callback mVoiceCallback = new VoiceRecorder.Callback() {
+
+        @Override
+        public void onVoiceStart() {
+            Log.d(TAG, "onVoiceStart");
+            if (mSpeechService != null) {
+                mSpeechService.startRecognizing(mVoiceRecorder.getSampleRate());
+            }
+        }
+
+        @Override
+        public void onVoice(byte[] data, int size) {
+            //Log.d(TAG,"onVoice");
+            if (mSpeechService != null) {
+                mSpeechService.recognize(data, size);
+            }
+        }
+
+        @Override
+        public void onVoiceEnd() {
+            Log.d(TAG, "onVoiceEnd");
+            if (mSpeechService != null) {
+                mSpeechService.finishRecognizing();
+            }
+        }
+    };
+
     @JavascriptInterface
     public String identify() {
         return "robot";
@@ -251,28 +216,76 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
         }
     }
 
-    private void startRecording() {
-        Log.e(TAG, "started recording");
-        mMediaRecorder = new MediaRecorder();
-        mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-        mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
-        mMediaRecorder.setOutputFile(mFileName);
-        mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
+    private final SpeechService.Listener mSpeechServiceListener =
+            new SpeechService.Listener() {
+                @Override
+                public void onSpeechRecognized(final String text, final boolean isFinal) {
+                    final WebView webView = ref.get();
+                    if (webView == null) {
+                        return;
+                    }
+                    if (isFinal) {
+                        mVoiceRecorder.dismiss();
+                    } else {
+                        webView.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                webView.loadUrl("javascript:irs_raw.phraseSuccess('" + text + "')");
 
-        try {
-            mMediaRecorder.prepare();
-        } catch (IOException e) {
-            Log.e(TAG, "prepare() failed");
+                            }
+                        });
+                    }
+
+                }
+            };
+
+    // For some reason it's not recognizing that service - needs to be tested
+    public void registerSpeech(Context context) {
+        Log.e(TAG, "Register speech boi");
+
+        if (mSpeechManager == null) {
+            mSpeechManager = new SpeechManager(context, this);
         }
-        mMediaRecorder.start();
     }
 
-    private void stopRecording(Context context) {
-        Log.e(TAG, "stopped recording");
-        mMediaRecorder.stop();
-        mMediaRecorder.release();
-        mMediaRecorder = null;
+    public void disableSpeech() {
+        if (mSpeechManager != null) {
+            mSpeechManager.shutdown();
+        }
     }
 
+    @JavascriptInterface
+    public void listen(String phrases) {
+        Log.e(TAG, "listen fun");
+        final WebView webView = ref.get();
+        if (webView == null) {
+            return;
+        }
+        Context context = ref.get().getContext();
+
+        // Prepare Cloud Speech API
+        context.bindService(new Intent(context, SpeechService.class), mServiceConnection, BIND_AUTO_CREATE);
+        startVoiceRecorder();
+
+    }
+
+    public void startVoiceRecorder() {
+        if (mVoiceRecorder != null) {
+            mVoiceRecorder.stop();
+        }
+        mVoiceRecorder = new VoiceRecorder(mVoiceCallback);
+        mVoiceRecorder.start();
+    }
+
+    public void stopVoiceRecorder(Context context) {
+        if (mVoiceRecorder != null) {
+            mVoiceRecorder.stop();
+            mVoiceRecorder = null;
+        }
+        // Stop Cloud Speech API
+        mSpeechService.removeListener(mSpeechServiceListener);
+        context.unbindService(mServiceConnection);
+        mSpeechService = null;
+    }
 
 }
