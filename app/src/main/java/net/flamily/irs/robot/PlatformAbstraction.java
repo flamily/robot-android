@@ -11,6 +11,7 @@ import android.util.Base64;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
+import android.widget.Toast;
 
 import net.flamily.irs.robot.image_capture.CaptureImageReceiver;
 import net.flamily.irs.robot.robot_listenining.SpeechService;
@@ -34,6 +35,44 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
     private SpeechService mSpeechService;
 
     private String[] phrases;
+    //Speech listener callback
+    private final SpeechService.Listener mSpeechServiceListener =
+            new SpeechService.Listener() {
+                @Override
+                public void onSpeechRecognized(final String text, final boolean isFinal) {
+                    final WebView webView = ref.get();
+                    if (webView == null) {
+                        return;
+                    }
+                    // search for phrase
+                    //TODO: wildcards for phrases?
+                    for (final String phrase : phrases) {
+                        if (text.contains(phrase)) {
+                            webView.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    webView.evaluateJavascript("javascript:irs_raw.phraseSuccess('" + phrase + "')", null);
+                                    Toast.makeText(webView.getContext(), "I can hear: " + phrase, Toast.LENGTH_LONG).show();
+                                }
+                            });
+                        }
+                    }
+                    // none of the phrases were fouond
+                    if (isFinal) {
+                        mVoiceRecorder.dismiss();
+                        webView.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                webView.
+                                        evaluateJavascript("javascript:irs_raw.phraseError('" +
+                                                webView.getContext().getResources().getString(R.string.phraseError)
+                                                + "')", null);
+
+                            }
+                        });
+                    }
+                }
+            };
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
 
@@ -102,44 +141,7 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
         }
     }
 
-    //Speech listener callback
-    private final SpeechService.Listener mSpeechServiceListener =
-            new SpeechService.Listener() {
-                @Override
-                public void onSpeechRecognized(final String text, final boolean isFinal) {
-                    final WebView webView = ref.get();
-                    if (webView == null) {
-                        return;
-                    }
-                    // search for phrase
-                    //TODO: wildcards for phrases?
-                    for (String phrase : phrases) {
-                        if (text.contains(phrase)) {
-                            webView.post(new Runnable() {
-                                @Override
-                                public void run() {
-                                    webView.evaluateJavascript("javascript:irs_raw.phraseSuccess('" + text + "')", null);
-
-                                }
-                            });
-                        }
-                    }
-                    // none of the phrases were fouond
-                    if (isFinal) {
-                        mVoiceRecorder.dismiss();
-                        webView.post(new Runnable() {
-                            @Override
-                            public void run() {
-                                webView.
-                                        evaluateJavascript("javascript:irs_raw.phraseError('" +
-                                                webView.getContext().getResources().getString(R.string.phraseError)
-                                                + "')", null);
-
-                            }
-                        });
-                    }
-                }
-            };
+    private int timeoutVal = -1;
 
     @Override
     public void sendImage(final byte[] data, final boolean success) {
@@ -267,17 +269,21 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
     }
 
     @JavascriptInterface
-    public void listen(String[] phrases) {
+    public void listen(String phrases) {
         Log.e(TAG, "listen fun");
         final WebView webView = ref.get();
         if (webView == null) {
             return;
         }
         Context context = ref.get().getContext();
-        this.phrases = phrases; // populate phrases
+        this.phrases = phrases.split(","); // populate phrases
         // Prepare Cloud Speech API
+
         context.bindService(new Intent(context, SpeechService.class), mServiceConnection, BIND_AUTO_CREATE);
         startVoiceRecorder();
+
+        //TODO: implement timeout
+        //Stoprecording, send timeout error
 
     }
 

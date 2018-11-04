@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">Robot</string>
-    <string name="phraseError">Error:Detected phrases weren't found</string>
+    <string name="phraseError">Error:Detected phrases werent found</string>
 </resources>
