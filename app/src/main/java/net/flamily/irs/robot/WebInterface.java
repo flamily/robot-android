@@ -2,10 +2,8 @@ package net.flamily.irs.robot;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Bundle;
-import android.speech.RecognizerIntent;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.ViewGroup;
@@ -15,7 +13,6 @@ import org.conscrypt.Conscrypt;
 
 import java.lang.ref.WeakReference;
 import java.security.Security;
-import java.util.ArrayList;
 
 public class WebInterface extends Activity {
     private WebView webView;
@@ -36,15 +33,13 @@ public class WebInterface extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.web_interface);
         buildWebView();
-        //staSecurity.insertProviderAt(Conscrypt.newProvider("GmsCore_OpenSSL"), 1);
     }
 
     @Override
     protected void onStart() {
         super.onStart();
         Log.e(TAG, "onStart");
-        if (mPlatformAbstraction != null)
-        {
+        if (mPlatformAbstraction != null) {
             mPlatformAbstraction.registerImageBroadCastReceiver(this);
             mPlatformAbstraction.registerSpeech(this);
         }
@@ -84,7 +79,6 @@ public class WebInterface extends Activity {
             webView = null;
         }
 
-        //TODO: unregister receiver
         if (mPlatformAbstraction != null) {
             mPlatformAbstraction.unregisterBroadCastReceiver(this);
             mPlatformAbstraction.disableSpeech();
@@ -143,7 +137,6 @@ public class WebInterface extends Activity {
         }
         if (webView.getParent() == null) {
             //Add the web view to the view hierarchy. Sneaky this way so we can rotate later
-
             ViewGroup vg = (ViewGroup) findViewById(R.id.web_view_container);
             vg.addView(webView, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT));
@@ -163,65 +156,6 @@ public class WebInterface extends Activity {
             return true;
         }
         return super.onKeyDown(keyCode, event);
-    }
-
-
-    /*private void checkPermissions() {
-        int MyVersion = Build.VERSION.SDK_INT;
-        if (MyVersion > Build.VERSION_CODES.KITKAT) {
-            if (!checkIfAlreadyhavePermission()) {
-                requestForSpecificPermission();
-            }
-        }
-    }*/
-
-    /*
-    private boolean checkIfAlreadyhavePermission() {
-        int result = getBaseContext().checkSelfPermission(this, Manifest.permission.CAMERA);
-        return result == PackageManager.PERMISSION_GRANTED;
-    }
-
-    private void requestForSpecificPermission() {
-        this.requestPermissions(this, new String[]{Manifest.permission.CAMERA},
-                MY_PERMISSIONS_REQUEST_CAMERA);
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        switch (requestCode) {
-            case MY_PERMISSIONS_REQUEST_CAMERA:
-                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Toast.makeText(this, "Granted", Toast.LENGTH_LONG).show();
-                } else {
-                    Toast.makeText(this, "Permissions required: quitting app", Toast.LENGTH_LONG).show();
-                    finish();
-                }
-                break;
-            default:
-                super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        }
-    }*/
-
-    ////TODO: Android standard speech ( doesn't work on robot )
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, final Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        switch (requestCode) {
-            case 10:
-                if (resultCode == RESULT_OK && data != null) {
-                    final ArrayList<String> result = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-
-                    webView.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            // do something with those bytes now
-                            webView.loadUrl("javascript:irs_raw.phraseSuccess('" + result.get(0) + "')");
-                        }
-                    });
-                }
-                break;
-        }
     }
 
 

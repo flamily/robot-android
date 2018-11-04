@@ -31,8 +31,9 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
     private CaptureImageReceiver mCaptureImageReceiver;
     private SpeechManager mSpeechManager;
 
-
     private SpeechService mSpeechService;
+
+    private String[] phrases;
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
 
@@ -101,7 +102,44 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
         }
     }
 
+    //Speech listener callback
+    private final SpeechService.Listener mSpeechServiceListener =
+            new SpeechService.Listener() {
+                @Override
+                public void onSpeechRecognized(final String text, final boolean isFinal) {
+                    final WebView webView = ref.get();
+                    if (webView == null) {
+                        return;
+                    }
+                    // search for phrase
+                    //TODO: wildcards for phrases?
+                    for (String phrase : phrases) {
+                        if (text.contains(phrase)) {
+                            webView.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    webView.evaluateJavascript("javascript:irs_raw.phraseSuccess('" + text + "')", null);
 
+                                }
+                            });
+                        }
+                    }
+                    // none of the phrases were fouond
+                    if (isFinal) {
+                        mVoiceRecorder.dismiss();
+                        webView.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                webView.
+                                        evaluateJavascript("javascript:irs_raw.phraseError('" +
+                                                webView.getContext().getResources().getString(R.string.phraseError)
+                                                + "')", null);
+
+                            }
+                        });
+                    }
+                }
+            };
 
     @Override
     public void sendImage(final byte[] data, final boolean success) {
@@ -116,9 +154,10 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
                 public void run() {
                     // do something with those bytes now
                     if (data.length > 0) {
-                        Log.e(TAG,"LOADING");
-                        webView.loadUrl("javascript:irs_raw.photoSuccess('success')");
+                        Log.e(TAG, "LOADING");
                         String encodedImage = Base64.encodeToString(data, Base64.DEFAULT);
+                        webView.evaluateJavascript("javascript:irs_raw.photoSuccess('success')", null);
+                        //webView.evaluateJavascript("javascript:irs_raw.photoSuccess('"+encodedImage+"')",null);
 
                         //TESTING
                         String pageData = "<img width=\"100%%25\"  src=\"data:image/jpeg;base64," + encodedImage + "\" />";
@@ -128,46 +167,9 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
                 }
             });
         } else {
-            webView.loadUrl("javascript:irs_raw.photoError('Unable to take image')");
+            webView.evaluateJavascript("javascript:irs_raw.photoError('Unable to take image')", null);
         }
 
-    }
-
-
-    @JavascriptInterface
-    public void say(String phrase) {
-        Log.e(TAG, "say");
-        final WebView webView = ref.get();
-        if (webView == null) {
-            return;
-        }
-        Context context = ref.get().getContext();
-
-        if (mSpeechManager == null)
-        {
-            Log.e(TAG, "Registering");
-            registerSpeech(context);
-        }
-        mSpeechManager.setChatEnable(true);
-        Log.e(TAG, "getChatEnable: "+mSpeechManager.getChatEnable());
-        mSpeechManager.setTtsListener(new SpeechManager.TtsListener() {
-            @Override
-            public void onBegin(int i) {
-                Log.d(TAG,"On begin talking");
-            }
-
-            @Override
-            public void onError(int i) {
-                Log.d(TAG,"On error");
-            }
-
-            @Override
-            public void onEnd(int i) {
-                Log.d(TAG,"On end talking");
-            }
-        });
-        mSpeechManager.setTtsEnable(true);
-        mSpeechManager.startSpeaking(phrase,true, true);
     }
 
     private VoiceRecorder mVoiceRecorder;
@@ -203,41 +205,51 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
         return "robot";
     }
 
+    @JavascriptInterface
+    public void say(String phrase) {
+        Log.e(TAG, "say");
+        final WebView webView = ref.get();
+        if (webView == null) {
+            return;
+        }
+        Context context = ref.get().getContext();
 
+        if (mSpeechManager == null) {
+            Log.e(TAG, "Registering");
+            registerSpeech(context);
+        }
+        mSpeechManager.setChatEnable(true);
+        Log.e(TAG, "getChatEnable: " + mSpeechManager.getChatEnable());
+        mSpeechManager.setTtsListener(new SpeechManager.TtsListener() {
+            @Override
+            public void onBegin(int i) {
+                Log.d(TAG, "On begin talking");
+            }
+
+            @Override
+            public void onError(int i) {
+                Log.d(TAG, "On error");
+            }
+
+            @Override
+            public void onEnd(int i) {
+                Log.d(TAG, "On end talking");
+            }
+        });
+        mSpeechManager.setTtsEnable(true);
+        mSpeechManager.startSpeaking(phrase, true, true);
+    }
 
     @Override
     public void onConnect(boolean status) {
         Log.d(TAG, "RobotSpeech: onConnect");
         if (status) {
-            Log.d(TAG,"speechManager init success!");
+            Log.d(TAG, "speechManager init success!");
             mSpeechManager.setChatEnable(true);
         } else {
-            Log.d(TAG,"speechManager init fail?");
+            Log.d(TAG, "speechManager init fail?");
         }
     }
-
-    private final SpeechService.Listener mSpeechServiceListener =
-            new SpeechService.Listener() {
-                @Override
-                public void onSpeechRecognized(final String text, final boolean isFinal) {
-                    final WebView webView = ref.get();
-                    if (webView == null) {
-                        return;
-                    }
-                    if (isFinal) {
-                        mVoiceRecorder.dismiss();
-                    } else {
-                        webView.post(new Runnable() {
-                            @Override
-                            public void run() {
-                                webView.loadUrl("javascript:irs_raw.phraseSuccess('" + text + "')");
-
-                            }
-                        });
-                    }
-
-                }
-            };
 
     // For some reason it's not recognizing that service - needs to be tested
     public void registerSpeech(Context context) {
@@ -255,14 +267,14 @@ public class PlatformAbstraction implements CaptureImageReceiver.ICaptureImageRe
     }
 
     @JavascriptInterface
-    public void listen(String phrases) {
+    public void listen(String[] phrases) {
         Log.e(TAG, "listen fun");
         final WebView webView = ref.get();
         if (webView == null) {
             return;
         }
         Context context = ref.get().getContext();
-
+        this.phrases = phrases; // populate phrases
         // Prepare Cloud Speech API
         context.bindService(new Intent(context, SpeechService.class), mServiceConnection, BIND_AUTO_CREATE);
         startVoiceRecorder();
